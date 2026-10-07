@@ -38,7 +38,7 @@ function AnnotationAnalytics({ task }: { task: Task }): JSX.Element {
     const [error, setError] = useState<string | null>(null);
     const [fetching, setFetching] = useState(true);
 
-    const loadCounts = useCallback(async () => {
+    const loadCounts = useCallback(async (signal?: AbortSignal) => {
         setFetching(true);
         setError(null);
         const query = labelID ? `?label_id=${labelID}` : '';
@@ -46,20 +46,33 @@ function AnnotationAnalytics({ task }: { task: Task }): JSX.Element {
         try {
             const response = await fetch(`/api/test/tasks/${task.id}/annotation-counts${query}`, {
                 credentials: 'same-origin',
+                signal,
             });
             if (!response.ok) {
                 throw new Error(`The annotation counts request failed (${response.status})`);
             }
             setData(await response.json() as AnnotationCountsResponse);
         } catch (loadError: unknown) {
+            if (loadError instanceof DOMException && loadError.name === 'AbortError') {
+                return;
+            }
             setError(loadError instanceof Error ? loadError.message : 'Could not load annotation counts');
         } finally {
-            setFetching(false);
+            if (!signal?.aborted) {
+                setFetching(false);
+            }
         }
     }, [labelID, task.id]);
 
     useEffect(() => {
-        loadCounts();
+        const controller = new AbortController();
+        loadCounts(controller.signal);
+        const refreshTimer = window.setInterval(() => loadCounts(controller.signal), 10000);
+
+        return () => {
+            controller.abort();
+            window.clearInterval(refreshTimer);
+        };
     }, [loadCounts]);
 
     const maximum = useMemo(

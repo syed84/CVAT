@@ -71,6 +71,20 @@ class AnnotationCountsApiTest(APITestCase):
         self.assertEqual(response.data["counts"], [])
         self.assertEqual(response.data["total"], 0)
 
+    def test_rejects_invalid_label_filter(self):
+        response = self.client.get(f"{self.url}?label_id=invalid")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_view")
+    def test_returns_not_found_for_unknown_task(self, create_scope_view):
+        response = self.client.get(
+            reverse("test:annotation-counts", args=[self.task.id + 1000])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        create_scope_view.assert_not_called()
+
     def test_requires_authentication(self):
         self.client.force_authenticate(user=None)
 
