@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 import config from 'config';
@@ -37,6 +37,8 @@ function AnnotationAnalytics({ task }: { task: Task }): JSX.Element {
     const [labelID, setLabelID] = useState<number | undefined>();
     const [error, setError] = useState<string | null>(null);
     const [fetching, setFetching] = useState(true);
+    const [streamState, setStreamState] = useState<'connecting' | 'connected' | 'fallback'>('connecting');
+    const streamRef = useRef<EventSource | null>(null);
 
     const loadCounts = useCallback(async (signal?: AbortSignal) => {
         setFetching(true);
@@ -67,11 +69,34 @@ function AnnotationAnalytics({ task }: { task: Task }): JSX.Element {
     useEffect(() => {
         const controller = new AbortController();
         loadCounts(controller.signal);
-        const refreshTimer = window.setInterval(() => loadCounts(controller.signal), 10000);
+        const stream = new EventSource(
+            `/api/test/tasks/${task.id}/annotation-counts/stream`,
+            { withCredentials: true },
+        );
+        streamRef.current = stream;
+        let refreshTimer: number | undefined;
+        stream.onopen = () => {
+            setStreamState('connected');
+            if (refreshTimer !== undefined) {
+                window.clearInterval(refreshTimer);
+                refreshTimer = undefined;
+            }
+        };
+        stream.onmessage = () => loadCounts(controller.signal);
+        stream.onerror = () => {
+            setStreamState('fallback');
+            if (refreshTimer === undefined) {
+                refreshTimer = window.setInterval(() => loadCounts(controller.signal), 10000);
+            }
+        };
 
         return () => {
             controller.abort();
-            window.clearInterval(refreshTimer);
+            stream.close();
+            streamRef.current = null;
+            if (refreshTimer !== undefined) {
+                window.clearInterval(refreshTimer);
+            }
         };
     }, [loadCounts]);
 
@@ -90,7 +115,7 @@ function AnnotationAnalytics({ task }: { task: Task }): JSX.Element {
                 type='error'
                 message='Could not load annotation counts'
                 description={error}
-                action={<Button onClick={loadCounts}>Retry</Button>}
+                action={<Button onClick={() => loadCounts()}>Retry</Button>}
             />
         );
     }
@@ -114,7 +139,15 @@ function AnnotationAnalytics({ task }: { task: Task }): JSX.Element {
                     type='warning'
                     showIcon
                     message={error}
-                    action={<Button onClick={loadCounts}>Retry</Button>}
+                    action={<Button onClick={() => loadCounts()}>Retry</Button>}
+                />
+            )}
+            {streamState === 'fallback' && (
+                <Alert
+                    type='warning'
+                    showIcon
+                    message='Live updates are reconnecting'
+                    description='The report is refreshing periodically until the event stream reconnects.'
                 />
             )}
             {!data?.counts.length ? (

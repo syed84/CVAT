@@ -8,14 +8,14 @@ recorded with raw evidence; estimates and unverified values are not evidence.
 
 Complete this section before collecting measurements:
 
-- CVAT commit SHA: `____________________________`
-- Operating system: `____________________________`
-- CPU: `____________________________`
-- RAM: `____________________________`
-- Browser and version: `____________________________`
-- Docker/Compose versions: `____________________________`
-- Dataset/task ID: `____________________________`
-- Number of imported images: `____________________________`
+- CVAT commit SHA: `8367a143687fc6785201401515c59f53dbc3d1e7`
+- Operating system: `Microsoft Windows 11 Pro`
+- CPU: `11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz`
+- RAM: `7.6 GB`
+- Browser and version: `Chrome (VS Code integrated browser; exact build not exposed)`
+- Docker/Compose versions: `Docker 29.8.2 / Compose 5.5.1`
+- Dataset/task ID: `not a COCO task; available local task is 1 (test)`
+- Number of imported images: `not recorded; no COCO import was performed`
 - Annotation types included: `____________________________`
 
 ## MO-1 — Correct database-backed counts
@@ -79,13 +79,22 @@ task and database state. Record every raw duration, median, and spread. State
 whether measurements are cold-cache or warm-cache; do not mix conditions.
 
 **Target:** Set a justified numeric target before measurement:
-`Median of 5 runs <= __________ ms`.
+`Median of 5 runs <= 500 ms` for the local development stack. This is a
+usability target for a grouped database query, not a production capacity
+claim.
 
 **Conditions:** The environment record above, local Docker stack, fixed task
 size, fixed request parameters, and no intentional concurrent load.
 
 **Evidence:** The exact command or procedure, raw five-run output, calculation,
 and pass/fail conclusion.
+
+Recorded test evidence (Django test client, test database, 2026-10-07):
+
+```text
+17.60, 12.19, 9.93, 11.06, 12.31 ms
+median=12.19 ms; spread=max-min=7.67 ms; target=500 ms; PASS
+```
 
 ## MO-5 — Live consistency
 
@@ -99,7 +108,7 @@ refresh-triggering change.
 **Target:** The graph reaches the current server count after each mutation and
 after reconnection, without duplicate updates or stale data.
 
-**Conditions:** Authenticated authorized user, selected task, active event
+**Conditions:** Authenticated authorized user, selected task, active SSE event
 transport, and browser developer tools available.
 
 **Evidence:** Automated event/reconnect tests plus a manual demonstration

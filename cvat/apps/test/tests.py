@@ -1,3 +1,5 @@
+import statistics
+import time
 from unittest import mock
 
 from django.urls import reverse
@@ -6,6 +8,7 @@ from rest_framework.test import APITestCase
 
 from cvat.apps.engine.models import Job, Label, LabeledShape, Segment, Task
 from cvat.apps.iam.models import User
+from cvat.apps.test.stream import publish, subscribe
 
 
 class AnnotationCountsApiTest(APITestCase):
@@ -91,3 +94,34 @@ class AnnotationCountsApiTest(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_view")
+    def test_annotation_stream_requires_task_access(self, create_scope_view):
+        create_scope_view.return_value.check_access.return_value.allow = True
+
+        response = self.client.get(
+            reverse("test:annotation-counts-stream", args=[self.task.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(next(response.streaming_content), b": connected\n\n")
+
+    def test_annotation_stream_publishes_changes(self):
+        with subscribe(self.task.id) as events:
+            publish(self.task.id, {"type": "annotations.changed"})
+            self.assertEqual(events.get(timeout=1)["type"], "annotations.changed")
+
+    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_view")
+    def test_five_request_latency_measurement(self, create_scope_view):
+        create_scope_view.return_value.check_access.return_value.allow = True
+        durations = []
+
+        for _ in range(5):
+            started = time.perf_counter()
+            response = self.client.get(self.url)
+            durations.append((time.perf_counter() - started) * 1000)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        median = statistics.median(durations)
+        print(f"annotation-counts latency ms: {[round(value, 2) for value in durations]}; median={median:.2f}")
+        self.assertLessEqual(median, 500)

@@ -1,6 +1,8 @@
 from collections import defaultdict
+from queue import Empty
 
 from django.db.models import Count
+from django.http import StreamingHttpResponse
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
@@ -15,6 +17,8 @@ from cvat.apps.engine.models import (
     Task,
 )
 from cvat.apps.engine.permissions import TaskPermission
+
+from .stream import encode_event, subscribe
 
 
 class AnnotationCountFilterSerializer(serializers.Serializer):
@@ -84,3 +88,28 @@ class AnnotationCountsView(APIView):
             "total": sum(item["count"] for item in counts),
         }
         return Response(AnnotationCountSerializer(response).data)
+
+
+class AnnotationCountsStreamView(AnnotationCountsView):
+    def get(self, request, task_id: int):
+        try:
+            task = Task.objects.select_related("organization").get(pk=task_id)
+        except Task.DoesNotExist:
+            raise NotFound("Task not found")
+
+        if not TaskPermission.create_scope_view(request, task).check_access().allow:
+            raise PermissionDenied("You do not have access to this task")
+
+        def events():
+            with subscribe(task_id) as subscriber:
+                yield b": connected\n\n"
+                while True:
+                    try:
+                        yield encode_event(subscriber.get(timeout=15))
+                    except Empty:
+                        yield b": heartbeat\n\n"
+
+        response = StreamingHttpResponse(events(), content_type="text/event-stream")
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"
+        return response

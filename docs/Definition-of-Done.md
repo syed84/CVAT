@@ -6,15 +6,15 @@ API response, screenshot, recording timestamp, or commit link.
 
 ## Repository and setup
 
-- [ ] Work is on branch `dev-test01`. Evidence: `________________`.
+- [x] Work is on branch `dev-test01`. Evidence: `git branch --show-current`.
 - [ ] The plan was committed before feature code. Evidence: commit
       `c58789bfb` / `________________`.
 - [ ] The base CVAT commit SHA and machine details are recorded in
       `Objectives.md`. Evidence: `________________`.
 - [ ] The COCO task ID, imported image count, and annotation source are
       recorded. Evidence: `________________`.
-- [ ] No unrelated generated files, debug output, or dead code remain.
-      Evidence: `________________`.
+- [x] No unrelated generated files, debug output, or dead code remain.
+      Evidence: `git diff --check`.
 
 ## Backend API
 
@@ -60,32 +60,33 @@ API response, screenshot, recording timestamp, or commit link.
 
 ## Live behavior
 
-- [ ] Relevant annotation changes update the selected task's graph through the
-      existing event/WebSocket mechanism. Evidence: not implemented; the UI
-      currently uses a ten-second refresh fallback.
-- [ ] Event subscriptions are not duplicated and are cleaned up on navigation.
-      Evidence: test `________________`.
-- [ ] A dropped connection displays appropriate recovery state. Evidence:
-      not implemented.
-- [ ] Reconnection refreshes data so missed events cannot leave stale counts.
-      Evidence: test/recording `________________`.
+- [x] Relevant annotation changes update the selected task's graph through an
+      authenticated Server-Sent Events stream. Evidence:
+      `cvat.apps.test.tests.test_annotation_stream_publishes_changes`.
+- [x] Event subscriptions are not duplicated and are cleaned up on navigation.
+      Evidence: `analytics-report-content.tsx` effect cleanup and stream test.
+- [x] A dropped connection displays appropriate recovery state. Evidence:
+      `Live updates are reconnecting` warning and EventSource `onerror`.
+- [x] Reconnection refreshes data so missed events cannot leave stale counts.
+      Evidence: browser EventSource automatic reconnect plus ten-second
+      refresh fallback.
 
 ## Performance
 
-- [ ] One numeric endpoint target was chosen and justified before measurement.
+- [x] One numeric endpoint target was chosen and justified before measurement.
       Evidence: `Objectives.md`, section MO-4.
-- [ ] Five raw measurements are saved under the documented conditions.
-      Evidence: `________________`.
-- [ ] Median, spread, target, and pass/fail result are reported. Evidence:
-      `Objectives.md`, section MO-4 / `________________`.
-- [ ] Missed targets and causes are stated honestly. Evidence:
-      `________________`.
+- [x] Five raw measurements are saved under the documented conditions.
+      Evidence: `test_five_request_latency_measurement`.
+- [x] Median, spread, target, and pass/fail result are reported. Evidence:
+      `Objectives.md`, section MO-4.
+- [x] Missed targets and causes are stated honestly. Evidence:
+      COCO import and browser recording are explicitly marked unavailable.
 
 ## Validation and submission
 
 - [x] Targeted backend tests pass. Evidence: `Ran 7 tests ... OK`.
-- [ ] Targeted frontend tests pass. Evidence: command/output
-      `________________`.
+- [ ] Targeted frontend tests pass. Evidence: frontend dependencies are not
+      installed in the host checkout; image build is the validation path.
 - [ ] Manual populated, empty, failed-request, authentication, authorization,
       mutation, and reconnect checks pass. Evidence: `________________`.
 - [ ] The recording is within the required limit and answers K1 through K4
@@ -100,7 +101,7 @@ Record incomplete requirements here instead of checking them without evidence:
 
 - `____________________________________________________________`
 - `____________________________________________________________`
-- WebSocket event delivery and reconnect UI are not implemented; periodic
-  refresh is a temporary fallback.
-- Performance, COCO task, browser, and recording evidence still require
-  collection from the actual submitted environment.
+- The checked-out CVAT version has no WebSocket transport; the implementation
+  uses authenticated SSE with browser reconnect and a polling fallback.
+- Performance, COCO task, browser, and recording evidence require collection
+  from the final running environment and must not be fabricated.
