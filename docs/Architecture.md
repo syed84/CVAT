@@ -27,7 +27,7 @@ flowchart LR
     Queue[RQ queues]
     Workers[CVAT background workers]
     Files[(CVAT data volumes)]
-    Events[Annotation events]
+    Events[Annotation SSE events]
     CH[(ClickHouse)]
     Vector[Vector event pipeline]
     Grafana[Grafana]
@@ -88,10 +88,11 @@ The count must be calculated in the database using Django ORM aggregation.
 The browser should receive aggregate results, not every annotation object.
 This reduces payload size and keeps task authorization at the API boundary.
 
-For live updates, the UI subscribes to CVAT's existing event/WebSocket
-mechanism. Relevant annotation events trigger a task-scoped refetch. When the
-connection returns, the UI performs a full refresh so events missed during the
-disconnect cannot leave stale counts.
+For live updates, the UI subscribes to the feature's authenticated
+Server-Sent Events stream. Annotation model signals publish a task-scoped
+change event, which triggers a refetch. EventSource reconnects automatically;
+the UI also uses a ten-second refresh fallback so missed events cannot leave
+stale counts. This CVAT checkout does not expose a WebSocket transport.
 
 ## 4. Runtime components
 

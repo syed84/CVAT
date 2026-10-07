@@ -25,7 +25,7 @@ following in the implementation notes:
 - The backend application and URL registration patterns used by existing
   Django/DRF endpoints.
 - The frontend route, API client, query/cache, chart, notification, and
-  WebSocket/event patterns already used by CVAT.
+  event patterns already used by CVAT.
 - The permission helper or policy used by the task detail endpoint.
 - The annotation models and relationships used to resolve:
   `Task -> Job/segment -> annotation -> Label`.
@@ -118,8 +118,10 @@ styling, and charting conventions wherever available.
 
 ### 3.4 Live updates and reconnect behavior
 
-After the request/response page works, subscribe to the existing CVAT event
-or WebSocket mechanism for annotation mutations affecting the selected task.
+After the request/response page works, subscribe to an authenticated
+task-scoped event stream for annotation mutations affecting the selected task.
+This checkout has no WebSocket transport, so the implementation uses
+Server-Sent Events and documents the fallback behavior.
 
 - Refresh or update counts only for relevant task events.
 - Avoid duplicate subscriptions when navigating or re-rendering.
@@ -272,7 +274,7 @@ Run the complete path in a browser:
 7. Log in as a user without task access; verify refusal in both API and UI.
 8. Add, edit, and delete an annotation; verify the graph changes through the
    live event path.
-9. Disconnect the browser's WebSocket/network, change an annotation, restore
+9. Disconnect the browser's event stream/network, change an annotation, restore
    connectivity, and verify a resynchronized result.
 10. Refresh and navigate away/back; verify there are no duplicate requests or
     subscriptions.
@@ -310,7 +312,7 @@ Do not report a single unrepeatable number.
 - Bound or validate filter input.
 - Avoid broad exception handling and silent zero-value fallbacks.
 - Cancel or ignore stale frontend requests.
-- Make WebSocket cleanup idempotent.
+- Make event-stream cleanup idempotent.
 - Keep event-triggered refreshes task-scoped and rate-safe.
 
 ## 7. Decision record
@@ -326,7 +328,7 @@ filter and reuse CVAT's event transport for live refresh.
 Do not compute counts in the browser by downloading all annotations. That
 would duplicate server authorization logic, increase payload size, make
 performance depend on the browser, and risk exposing annotations that the
-caller should not receive. Do not introduce a separate WebSocket protocol when
+caller should not receive. Do not introduce a separate socket protocol when
 CVAT already provides an event mechanism.
 
 ### Cost of the rejection
@@ -346,7 +348,7 @@ can scale beyond the sample dataset.
 - [ ] Populated, empty, and failed-request UI states demonstrated.
 - [ ] Additional filter demonstrated.
 - [ ] Five raw performance runs, median, spread, and target reported.
-- [ ] Annotation mutation updates the graph through WebSocket/event handling.
+- [x] Annotation mutation updates the graph through SSE event handling.
 - [ ] Connection drop and recovery demonstrated.
 - [ ] Unfinished requirements and known limitations listed.
 - [ ] Objectives and Definition of Done documents updated with evidence.
