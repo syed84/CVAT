@@ -27,9 +27,9 @@ class AnnotationCountsApiTest(APITestCase):
         self.url = reverse("test:annotation-counts", args=[self.task.id])
         self.client.force_authenticate(self.user)
 
-    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_list")
-    def test_returns_counts_grouped_by_label(self, create_scope_list):
-        create_scope_list.return_value.filter.side_effect = lambda queryset: queryset
+    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_view")
+    def test_returns_counts_grouped_by_label(self, create_scope_view):
+        create_scope_view.return_value.check_access.return_value.allow = True
 
         response = self.client.get(self.url)
 
@@ -40,9 +40,9 @@ class AnnotationCountsApiTest(APITestCase):
             {"label_id": self.car.id, "label_name": "car", "count": 1},
         ])
 
-    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_list")
-    def test_filters_by_label(self, create_scope_list):
-        create_scope_list.return_value.filter.side_effect = lambda queryset: queryset
+    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_view")
+    def test_filters_by_label(self, create_scope_view):
+        create_scope_view.return_value.check_access.return_value.allow = True
 
         response = self.client.get(f"{self.url}?label_id={self.car.id}")
 
@@ -51,6 +51,25 @@ class AnnotationCountsApiTest(APITestCase):
         self.assertEqual(response.data["counts"], [
             {"label_id": self.car.id, "label_name": "car", "count": 1},
         ])
+
+    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_view")
+    def test_denies_user_without_task_access(self, create_scope_view):
+        create_scope_view.return_value.check_access.return_value.allow = False
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @mock.patch("cvat.apps.test.views.TaskPermission.create_scope_view")
+    def test_returns_empty_counts_for_task_without_annotations(self, create_scope_view):
+        create_scope_view.return_value.check_access.return_value.allow = True
+        LabeledShape.objects.all().delete()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["counts"], [])
+        self.assertEqual(response.data["total"], 0)
 
     def test_requires_authentication(self):
         self.client.force_authenticate(user=None)

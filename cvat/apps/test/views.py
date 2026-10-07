@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from django.db.models import Count
 from rest_framework import serializers
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -35,11 +35,13 @@ class AnnotationCountsView(APIView):
         filters = AnnotationCountFilterSerializer(data=request.query_params)
         filters.is_valid(raise_exception=True)
 
-        task_queryset = TaskPermission.create_scope_list(request).filter(
-            Task.objects.filter(pk=task_id)
-        )
-        if not task_queryset.exists():
+        try:
+            task = Task.objects.select_related("organization").get(pk=task_id)
+        except Task.DoesNotExist:
             raise NotFound("Task not found")
+
+        if not TaskPermission.create_scope_view(request, task).check_access().allow:
+            raise PermissionDenied("You do not have access to this task")
 
         annotation_models = (
             LabeledImage,
@@ -51,7 +53,7 @@ class AnnotationCountsView(APIView):
         counts_by_label = defaultdict(int)
 
         for annotation_model in annotation_models:
-            queryset = annotation_model.objects.filter(job__segment__task_id=task_id)
+            queryset = annotation_model.objects.filter(job__segment__task=task)
             if label_filter is not None:
                 queryset = queryset.filter(label_id=label_filter)
 
