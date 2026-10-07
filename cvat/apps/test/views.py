@@ -29,6 +29,8 @@ class AnnotationCountSerializer(serializers.Serializer):
 
 
 class AnnotationCountsView(APIView):
+    detail = True
+
     def get(self, request, task_id: int):
         filters = AnnotationCountFilterSerializer(data=request.query_params)
         filters.is_valid(raise_exception=True)
